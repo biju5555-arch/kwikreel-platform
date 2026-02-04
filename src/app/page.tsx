@@ -1,16 +1,86 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { motion, useScroll, useTransform, useInView } from 'framer-motion';
-import { ArrowRight, Play, Sparkles, Zap, Globe, Clock, CheckCircle2, ChevronRight } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { motion, useScroll, useTransform, useInView, useMotionValue, useSpring } from 'framer-motion';
+import { ArrowRight, Sparkles, Zap, Globe, Clock, CheckCircle2, ChevronRight, Film, Video, Mic, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 
 // Animated gradient text component
 function GradientText({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
-    <span className={`bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent ${className}`}>
+    <span className={`bg-gradient-to-r from-orange-400 via-red-500 to-pink-500 bg-clip-text text-transparent ${className}`}>
       {children}
     </span>
+  );
+}
+
+// Parallax floating element
+function FloatingElement({ 
+  children, 
+  className = '',
+  speed = 1,
+  rotateSpeed = 0,
+  delay = 0
+}: { 
+  children: React.ReactNode; 
+  className?: string;
+  speed?: number;
+  rotateSpeed?: number;
+  delay?: number;
+}) {
+  const ref = useRef(null);
+  const { scrollYProgress } = useScroll();
+  const y = useTransform(scrollYProgress, [0, 1], [0, -200 * speed]);
+  const rotate = useTransform(scrollYProgress, [0, 1], [0, 360 * rotateSpeed]);
+  
+  return (
+    <motion.div
+      ref={ref}
+      style={{ y, rotate }}
+      initial={{ opacity: 0, scale: 0 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ 
+        duration: 0.8, 
+        delay,
+        type: "spring",
+        stiffness: 100
+      }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+// Mouse parallax wrapper
+function MouseParallax({ children, strength = 20 }: { children: React.ReactNode; strength?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  
+  const springConfig = { damping: 25, stiffness: 150 };
+  const x = useSpring(mouseX, springConfig);
+  const y = useSpring(mouseY, springConfig);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = ref.current?.getBoundingClientRect();
+      if (rect) {
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        mouseX.set((e.clientX - centerX) / strength);
+        mouseY.set((e.clientY - centerY) / strength);
+      }
+    };
+    
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [mouseX, mouseY, strength]);
+
+  return (
+    <motion.div ref={ref} style={{ x, y }}>
+      {children}
+    </motion.div>
   );
 }
 
@@ -85,7 +155,7 @@ export default function Home() {
     offset: ['start start', 'end start']
   });
   
-  const heroY = useTransform(scrollYProgress, [0, 1], [0, 200]);
+  const heroScale = useTransform(scrollYProgress, [0, 1], [1, 0.8]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
 
   const handleGetStarted = () => {
@@ -97,13 +167,13 @@ export default function Home() {
   };
 
   return (
-    <div className="bg-white text-gray-900 overflow-x-hidden">
+    <div className="bg-black text-white overflow-x-hidden">
       {/* Navigation */}
       <motion.nav 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100"
+        className="fixed top-0 left-0 right-0 z-50 bg-black/50 backdrop-blur-xl border-b border-white/10"
       >
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -112,55 +182,157 @@ export default function Home() {
             </span>
           </Link>
           <div className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-gray-600 hover:text-gray-900 transition-colors">Features</a>
-            <a href="#how-it-works" className="text-gray-600 hover:text-gray-900 transition-colors">How it Works</a>
-            <a href="#industries" className="text-gray-600 hover:text-gray-900 transition-colors">Industries</a>
+            <a href="#features" className="text-gray-400 hover:text-white transition-colors">Features</a>
+            <a href="#how-it-works" className="text-gray-400 hover:text-white transition-colors">How it Works</a>
+            <a href="#industries" className="text-gray-400 hover:text-white transition-colors">Industries</a>
           </div>
           <Link 
             href="/quick"
-            className="px-5 py-2.5 bg-gray-900 text-white rounded-full font-medium hover:bg-gray-800 transition-colors"
+            className="px-5 py-2.5 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-colors"
           >
             Get Started
           </Link>
         </div>
       </motion.nav>
 
-      {/* Hero Section */}
-      <section ref={heroRef} className="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
-        {/* Animated background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-orange-50/50 via-white to-white" />
-        <motion.div 
-          className="absolute top-1/4 left-1/4 w-96 h-96 bg-orange-200/30 rounded-full blur-3xl"
-          animate={{ 
-            scale: [1, 1.2, 1],
-            x: [0, 50, 0],
-            y: [0, 30, 0],
-          }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <motion.div 
-          className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-red-200/30 rounded-full blur-3xl"
-          animate={{ 
-            scale: [1.2, 1, 1.2],
-            x: [0, -50, 0],
-            y: [0, -30, 0],
-          }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        />
+      {/* Hero Section - Olipop Style */}
+      <section ref={heroRef} className="relative min-h-[120vh] flex items-center justify-center overflow-hidden bg-black">
+        {/* Dramatic gradient background */}
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 bg-gradient-to-b from-orange-950/50 via-black to-black" />
+          <motion.div 
+            className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] rounded-full"
+            style={{
+              background: 'radial-gradient(circle, rgba(234,88,12,0.4) 0%, rgba(220,38,38,0.2) 40%, transparent 70%)',
+            }}
+            animate={{ 
+              scale: [1, 1.2, 1],
+            }}
+            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </div>
 
+        {/* Floating parallax elements */}
+        <div className="absolute inset-0 pointer-events-none">
+          {/* Large floating icons */}
+          <FloatingElement 
+            className="absolute top-[15%] left-[10%]" 
+            speed={0.3} 
+            delay={0.2}
+          >
+            <MouseParallax strength={30}>
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-2xl shadow-orange-500/50 rotate-12">
+                <Film className="text-white" size={36} />
+              </div>
+            </MouseParallax>
+          </FloatingElement>
+
+          <FloatingElement 
+            className="absolute top-[20%] right-[12%]" 
+            speed={0.5} 
+            delay={0.4}
+          >
+            <MouseParallax strength={25}>
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center shadow-2xl shadow-pink-500/50 -rotate-12">
+                <Mic className="text-white" size={28} />
+              </div>
+            </MouseParallax>
+          </FloatingElement>
+
+          <FloatingElement 
+            className="absolute bottom-[30%] left-[8%]" 
+            speed={0.4} 
+            delay={0.6}
+          >
+            <MouseParallax strength={35}>
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-2xl shadow-cyan-500/50 rotate-6">
+                <ImageIcon className="text-white" size={24} />
+              </div>
+            </MouseParallax>
+          </FloatingElement>
+
+          <FloatingElement 
+            className="absolute bottom-[25%] right-[15%]" 
+            speed={0.35} 
+            delay={0.8}
+          >
+            <MouseParallax strength={28}>
+              <div className="w-18 h-18 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-2xl shadow-green-500/50 -rotate-6 p-4">
+                <Video className="text-white" size={32} />
+              </div>
+            </MouseParallax>
+          </FloatingElement>
+
+          {/* Floating orbs */}
+          <motion.div
+            className="absolute top-[30%] left-[25%] w-4 h-4 rounded-full bg-orange-500"
+            animate={{
+              y: [0, -30, 0],
+              opacity: [0.5, 1, 0.5],
+            }}
+            transition={{ duration: 3, repeat: Infinity, delay: 0 }}
+          />
+          <motion.div
+            className="absolute top-[40%] right-[20%] w-3 h-3 rounded-full bg-red-500"
+            animate={{
+              y: [0, -40, 0],
+              opacity: [0.5, 1, 0.5],
+            }}
+            transition={{ duration: 4, repeat: Infinity, delay: 0.5 }}
+          />
+          <motion.div
+            className="absolute bottom-[35%] left-[30%] w-2 h-2 rounded-full bg-pink-500"
+            animate={{
+              y: [0, -25, 0],
+              opacity: [0.5, 1, 0.5],
+            }}
+            transition={{ duration: 2.5, repeat: Infinity, delay: 1 }}
+          />
+          <motion.div
+            className="absolute top-[50%] right-[30%] w-3 h-3 rounded-full bg-yellow-500"
+            animate={{
+              y: [0, -35, 0],
+              opacity: [0.5, 1, 0.5],
+            }}
+            transition={{ duration: 3.5, repeat: Infinity, delay: 1.5 }}
+          />
+
+          {/* Sparkle particles */}
+          {[...Array(12)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-1 h-1 rounded-full bg-white"
+              style={{
+                top: `${20 + Math.random() * 60}%`,
+                left: `${10 + Math.random() * 80}%`,
+              }}
+              animate={{
+                opacity: [0, 1, 0],
+                scale: [0, 1.5, 0],
+              }}
+              transition={{
+                duration: 2 + Math.random() * 2,
+                repeat: Infinity,
+                delay: Math.random() * 3,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Main content */}
         <motion.div 
-          style={{ y: heroY, opacity: heroOpacity }}
-          className="relative z-10 max-w-5xl mx-auto px-6 text-center"
+          style={{ scale: heroScale, opacity: heroOpacity }}
+          className="relative z-10 max-w-5xl mx-auto px-6 text-center pt-20"
         >
           {/* Badge */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-orange-100 rounded-full text-orange-700 text-sm font-medium mb-8"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full text-orange-400 text-sm font-medium mb-8 border border-white/20"
           >
             <Sparkles size={16} />
-            AI-Powered Video Ads for Contractors
+            AI-Powered Video Ads
           </motion.div>
 
           {/* Main headline */}
@@ -168,9 +340,11 @@ export default function Home() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight leading-[1.1] mb-6"
+            className="text-5xl sm:text-7xl md:text-8xl font-bold tracking-tight leading-[0.95] mb-8"
           >
-            Your next customer is
+            <span className="text-white">Your next</span>
+            <br />
+            <span className="text-white">customer is</span>
             <br />
             <GradientText>one video away.</GradientText>
           </motion.h1>
@@ -180,10 +354,10 @@ export default function Home() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="text-xl md:text-2xl text-gray-600 mb-12 max-w-2xl mx-auto leading-relaxed"
+            className="text-xl md:text-2xl text-gray-400 mb-12 max-w-2xl mx-auto leading-relaxed"
           >
-            Paste your website. Get a professional video ad. 
-            <span className="text-gray-900 font-medium"> 60 seconds.</span>
+            Paste your website. Get a professional video ad.
+            <span className="text-white font-semibold"> 60 seconds.</span>
           </motion.p>
 
           {/* URL Input */}
@@ -193,20 +367,20 @@ export default function Home() {
             transition={{ duration: 0.8, delay: 0.5 }}
             className="max-w-xl mx-auto"
           >
-            <div className="flex flex-col sm:flex-row gap-3 p-2 bg-gray-100 rounded-2xl sm:rounded-full">
+            <div className="flex flex-col sm:flex-row gap-3 p-2 bg-white/10 backdrop-blur-md rounded-2xl sm:rounded-full border border-white/20">
               <div className="flex-1 relative">
-                <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={20} />
                 <input
                   type="url"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="Enter your website URL"
-                  className="w-full bg-white rounded-xl sm:rounded-full pl-12 pr-4 py-4 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-sm"
+                  className="w-full bg-white/10 rounded-xl sm:rounded-full pl-12 pr-4 py-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500 backdrop-blur-sm"
                 />
               </div>
               <button
                 onClick={handleGetStarted}
-                className="px-8 py-4 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 rounded-xl sm:rounded-full font-semibold text-white transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 group"
+                className="px-8 py-4 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-400 hover:to-red-500 rounded-xl sm:rounded-full font-semibold text-white transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2 group"
               >
                 Create Video
                 <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -217,143 +391,41 @@ export default function Home() {
             </p>
           </motion.div>
 
-        </motion.div>
-
-        {/* Flowing animation that blends into background */}
-        <div className="absolute bottom-0 left-0 right-0 h-[50vh] pointer-events-none overflow-hidden">
-          {/* Animated flowing shapes */}
-          <motion.div
-            className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[120%] h-full"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8, duration: 1.5 }}
-          >
-            {/* Primary flowing wave */}
-            <motion.div
-              className="absolute bottom-0 left-0 right-0 h-[300px]"
-              style={{
-                background: 'linear-gradient(180deg, transparent 0%, rgba(249,115,22,0.08) 30%, rgba(239,68,68,0.12) 60%, rgba(249,115,22,0.15) 100%)',
-                borderRadius: '50% 50% 0 0 / 100% 100% 0 0',
-              }}
-              animate={{
-                scaleX: [1, 1.05, 1],
-                scaleY: [1, 1.1, 1],
-              }}
-              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-            />
-            
-            {/* Secondary flowing wave */}
-            <motion.div
-              className="absolute bottom-0 left-0 right-0 h-[250px]"
-              style={{
-                background: 'linear-gradient(180deg, transparent 0%, rgba(251,146,60,0.06) 40%, rgba(249,115,22,0.1) 100%)',
-                borderRadius: '60% 40% 0 0 / 100% 100% 0 0',
-              }}
-              animate={{
-                scaleX: [1.05, 1, 1.05],
-                scaleY: [1.1, 1, 1.1],
-              }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-            />
-
-            {/* Floating orbs */}
-            <motion.div
-              className="absolute bottom-20 left-[20%] w-32 h-32 rounded-full bg-gradient-to-br from-orange-400/20 to-red-400/20 blur-2xl"
-              animate={{
-                y: [0, -30, 0],
-                x: [0, 20, 0],
-                scale: [1, 1.2, 1],
-              }}
-              transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.div
-              className="absolute bottom-32 right-[25%] w-24 h-24 rounded-full bg-gradient-to-br from-pink-400/15 to-orange-400/15 blur-2xl"
-              animate={{
-                y: [0, -40, 0],
-                x: [0, -15, 0],
-                scale: [1.1, 1, 1.1],
-              }}
-              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-            />
-            <motion.div
-              className="absolute bottom-10 left-[40%] w-20 h-20 rounded-full bg-gradient-to-br from-red-400/10 to-pink-400/10 blur-xl"
-              animate={{
-                y: [0, -25, 0],
-                scale: [1, 1.3, 1],
-              }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-            />
-
-            {/* Sparkle particles */}
-            {[...Array(6)].map((_, i) => (
+          {/* Floating labels */}
+          <div className="mt-16 flex flex-wrap justify-center gap-4">
+            {['Script', 'Voiceover', 'Visuals', 'Video'].map((item, i) => (
               <motion.div
-                key={i}
-                className="absolute w-2 h-2 rounded-full bg-orange-400/40"
-                style={{
-                  bottom: `${15 + Math.random() * 30}%`,
-                  left: `${15 + i * 12 + Math.random() * 10}%`,
-                }}
-                animate={{
-                  y: [0, -60 - Math.random() * 40, 0],
-                  opacity: [0, 1, 0],
-                  scale: [0.5, 1, 0.5],
-                }}
-                transition={{
-                  duration: 3 + Math.random() * 2,
-                  repeat: Infinity,
-                  delay: i * 0.4,
-                  ease: "easeOut",
-                }}
-              />
+                key={item}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 + i * 0.1 }}
+                className="px-4 py-2 bg-white/5 backdrop-blur-sm rounded-full text-sm font-medium text-gray-300 border border-white/10"
+              >
+                ✓ {item}
+              </motion.div>
             ))}
-          </motion.div>
-
-          {/* Floating badges that emerge from the flow */}
-          <motion.div
-            className="absolute bottom-[30%] left-[15%] px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full text-sm font-medium shadow-lg border border-white/50"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.2, duration: 0.8 }}
-          >
-            <span className="mr-2">🎬</span>Website → Video
-          </motion.div>
-          <motion.div
-            className="absolute bottom-[25%] right-[18%] px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full text-sm font-medium shadow-lg border border-white/50"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.5, duration: 0.8 }}
-          >
-            <span className="mr-2">⚡</span>60 seconds
-          </motion.div>
-          <motion.div
-            className="absolute bottom-[40%] left-1/2 -translate-x-1/2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full text-sm font-medium shadow-lg border border-white/50"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 1.8, duration: 0.8 }}
-          >
-            <span className="mr-2">✨</span>AI-Powered
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
 
         {/* Scroll indicator */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 2 }}
+          transition={{ delay: 1.5 }}
           className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10"
         >
           <motion.div
             animate={{ y: [0, 10, 0] }}
             transition={{ duration: 1.5, repeat: Infinity }}
-            className="w-6 h-10 rounded-full border-2 border-gray-300 bg-white/50 backdrop-blur-sm flex items-start justify-center p-2"
+            className="w-6 h-10 rounded-full border-2 border-white/30 flex items-start justify-center p-2"
           >
-            <motion.div className="w-1.5 h-3 bg-gray-400 rounded-full" />
+            <motion.div className="w-1.5 h-3 bg-white/50 rounded-full" />
           </motion.div>
         </motion.div>
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-32 bg-white">
+      <section id="features" className="py-32 bg-white text-gray-900">
         <div className="max-w-7xl mx-auto px-6">
           <FadeIn className="text-center mb-20">
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">
@@ -390,7 +462,7 @@ export default function Home() {
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className="py-32 bg-gray-50">
+      <section id="how-it-works" className="py-32 bg-gray-50 text-gray-900">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
@@ -486,7 +558,7 @@ export default function Home() {
       </section>
 
       {/* Industries Section */}
-      <section id="industries" className="py-32 bg-white">
+      <section id="industries" className="py-32 bg-white text-gray-900">
         <div className="max-w-7xl mx-auto px-6">
           <FadeIn className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">
@@ -515,7 +587,7 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-32 bg-gray-900 relative overflow-hidden">
+      <section className="py-32 bg-black relative overflow-hidden">
         {/* Background animation */}
         <motion.div 
           className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-orange-600/20 rounded-full blur-3xl"
@@ -552,7 +624,6 @@ export default function Home() {
                 <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
               </Link>
               <button className="px-8 py-4 border border-gray-700 text-white rounded-full font-semibold hover:bg-gray-800 transition-colors inline-flex items-center justify-center gap-2">
-                <Play size={18} />
                 Watch Demo
               </button>
             </div>
@@ -561,21 +632,21 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 bg-white border-t border-gray-100">
+      <footer className="py-12 bg-black border-t border-white/10">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-2">
               <span className="text-xl font-bold tracking-tight">
                 <GradientText>KwikReel</GradientText>
               </span>
-              <span className="text-gray-400">by Barbarian Labs</span>
+              <span className="text-gray-600">by Barbarian Labs</span>
             </div>
-            <div className="flex items-center gap-8 text-sm text-gray-600">
-              <a href="#" className="hover:text-gray-900 transition-colors">Privacy</a>
-              <a href="#" className="hover:text-gray-900 transition-colors">Terms</a>
-              <a href="#" className="hover:text-gray-900 transition-colors">Contact</a>
+            <div className="flex items-center gap-8 text-sm text-gray-500">
+              <a href="#" className="hover:text-white transition-colors">Privacy</a>
+              <a href="#" className="hover:text-white transition-colors">Terms</a>
+              <a href="#" className="hover:text-white transition-colors">Contact</a>
             </div>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-gray-600">
               © 2026 KwikReel. All rights reserved.
             </p>
           </div>
