@@ -1,21 +1,27 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "BHAIRAV - Film Director AI | Barbarian Labs",
-  description: "AI-powered creative assistant for video ad production. Generate images, videos, and voiceovers for your marketing campaigns.",
-  keywords: ["AI", "video ads", "marketing", "automation", "Barbarian Labs"],
+  title: "KwikReel — Video Ads for Contractors in 60 Seconds",
+  description: "Turn your website into a professional video ad in 60 seconds. AI-powered video generation for contractors, roofers, painters, plumbers, and more.",
+  keywords: ["video ads", "contractor marketing", "AI video generator", "roofing ads", "plumber marketing", "construction advertising"],
+  openGraph: {
+    title: "KwikReel — Video Ads for Contractors",
+    description: "Your next customer is one video away. Paste your website, get a video ad in 60 seconds.",
+    type: "website",
+    url: "https://kwikreel.ai",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "KwikReel — Video Ads in 60 Seconds",
+    description: "Turn your website into a professional video ad. AI-powered, instant results.",
+  },
 };
 
 export default function RootLayout({
@@ -24,10 +30,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-zinc-900`}
-      >
+    <html lang="en" className="scroll-smooth">
+      <body className={`${inter.variable} font-sans antialiased`}>
         {children}
       </body>
     </html>
