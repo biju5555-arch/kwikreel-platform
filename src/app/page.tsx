@@ -217,57 +217,135 @@ export default function Home() {
             </p>
           </motion.div>
 
-          {/* Demo video preview */}
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.7 }}
-            className="mt-16 relative"
-          >
-            <div className="relative max-w-4xl mx-auto rounded-3xl overflow-hidden shadow-2xl shadow-gray-300/50 border border-gray-200">
-              <div className="aspect-video bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group"
-                >
-                  <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-lg">
-                    <Play size={28} className="text-gray-900 ml-1" />
-                  </div>
-                </motion.button>
-              </div>
-              {/* Floating elements */}
-              <motion.div 
-                className="absolute top-4 left-4 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-full text-sm font-medium shadow-lg"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 1.2 }}
-              >
-                🎬 Website → Video Ad
-              </motion.div>
-              <motion.div 
-                className="absolute bottom-4 right-4 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-full text-sm font-medium shadow-lg"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 1.4 }}
-              >
-                ⚡ 60 seconds
-              </motion.div>
-            </div>
-          </motion.div>
         </motion.div>
+
+        {/* Flowing animation that blends into background */}
+        <div className="absolute bottom-0 left-0 right-0 h-[50vh] pointer-events-none overflow-hidden">
+          {/* Animated flowing shapes */}
+          <motion.div
+            className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[120%] h-full"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8, duration: 1.5 }}
+          >
+            {/* Primary flowing wave */}
+            <motion.div
+              className="absolute bottom-0 left-0 right-0 h-[300px]"
+              style={{
+                background: 'linear-gradient(180deg, transparent 0%, rgba(249,115,22,0.08) 30%, rgba(239,68,68,0.12) 60%, rgba(249,115,22,0.15) 100%)',
+                borderRadius: '50% 50% 0 0 / 100% 100% 0 0',
+              }}
+              animate={{
+                scaleX: [1, 1.05, 1],
+                scaleY: [1, 1.1, 1],
+              }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+            />
+            
+            {/* Secondary flowing wave */}
+            <motion.div
+              className="absolute bottom-0 left-0 right-0 h-[250px]"
+              style={{
+                background: 'linear-gradient(180deg, transparent 0%, rgba(251,146,60,0.06) 40%, rgba(249,115,22,0.1) 100%)',
+                borderRadius: '60% 40% 0 0 / 100% 100% 0 0',
+              }}
+              animate={{
+                scaleX: [1.05, 1, 1.05],
+                scaleY: [1.1, 1, 1.1],
+              }}
+              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+            />
+
+            {/* Floating orbs */}
+            <motion.div
+              className="absolute bottom-20 left-[20%] w-32 h-32 rounded-full bg-gradient-to-br from-orange-400/20 to-red-400/20 blur-2xl"
+              animate={{
+                y: [0, -30, 0],
+                x: [0, 20, 0],
+                scale: [1, 1.2, 1],
+              }}
+              transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <motion.div
+              className="absolute bottom-32 right-[25%] w-24 h-24 rounded-full bg-gradient-to-br from-pink-400/15 to-orange-400/15 blur-2xl"
+              animate={{
+                y: [0, -40, 0],
+                x: [0, -15, 0],
+                scale: [1.1, 1, 1.1],
+              }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+            />
+            <motion.div
+              className="absolute bottom-10 left-[40%] w-20 h-20 rounded-full bg-gradient-to-br from-red-400/10 to-pink-400/10 blur-xl"
+              animate={{
+                y: [0, -25, 0],
+                scale: [1, 1.3, 1],
+              }}
+              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+            />
+
+            {/* Sparkle particles */}
+            {[...Array(6)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute w-2 h-2 rounded-full bg-orange-400/40"
+                style={{
+                  bottom: `${15 + Math.random() * 30}%`,
+                  left: `${15 + i * 12 + Math.random() * 10}%`,
+                }}
+                animate={{
+                  y: [0, -60 - Math.random() * 40, 0],
+                  opacity: [0, 1, 0],
+                  scale: [0.5, 1, 0.5],
+                }}
+                transition={{
+                  duration: 3 + Math.random() * 2,
+                  repeat: Infinity,
+                  delay: i * 0.4,
+                  ease: "easeOut",
+                }}
+              />
+            ))}
+          </motion.div>
+
+          {/* Floating badges that emerge from the flow */}
+          <motion.div
+            className="absolute bottom-[30%] left-[15%] px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full text-sm font-medium shadow-lg border border-white/50"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.2, duration: 0.8 }}
+          >
+            <span className="mr-2">🎬</span>Website → Video
+          </motion.div>
+          <motion.div
+            className="absolute bottom-[25%] right-[18%] px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full text-sm font-medium shadow-lg border border-white/50"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.5, duration: 0.8 }}
+          >
+            <span className="mr-2">⚡</span>60 seconds
+          </motion.div>
+          <motion.div
+            className="absolute bottom-[40%] left-1/2 -translate-x-1/2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full text-sm font-medium shadow-lg border border-white/50"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 1.8, duration: 0.8 }}
+          >
+            <span className="mr-2">✨</span>AI-Powered
+          </motion.div>
+        </div>
 
         {/* Scroll indicator */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 1.5 }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2"
+          transition={{ delay: 2 }}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10"
         >
           <motion.div
             animate={{ y: [0, 10, 0] }}
             transition={{ duration: 1.5, repeat: Infinity }}
-            className="w-6 h-10 rounded-full border-2 border-gray-300 flex items-start justify-center p-2"
+            className="w-6 h-10 rounded-full border-2 border-gray-300 bg-white/50 backdrop-blur-sm flex items-start justify-center p-2"
           >
             <motion.div className="w-1.5 h-3 bg-gray-400 rounded-full" />
           </motion.div>
