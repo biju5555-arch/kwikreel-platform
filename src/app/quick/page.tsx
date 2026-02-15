@@ -35,6 +35,7 @@ interface GeneratedAd {
   };
   voiceover?: {
     url: string;
+    audioBase64?: string;
     duration: number;
   };
   video?: {
@@ -226,10 +227,12 @@ function QuickGenContent() {
         body: JSON.stringify({
           script: ad.script.fullScript,
           heroImageUrl: ad.image?.url,
+          voiceoverBase64: ad.voiceover?.audioBase64,
+          voiceoverUrl: ad.voiceover?.audioBase64 ? undefined : ad.voiceover?.url,
+          businessName: business.name,
+          businessSlug: business.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           website: (business as any).sourceUrl || url,
           phone: (business as any).phone,
-          voiceoverUrl: ad.voiceover?.url,
-          businessName: business.name,
           services: business.services,
         }),
       });

@@ -29,6 +29,7 @@ interface GeneratedAd {
   };
   voiceover?: {
     url: string;
+    audioBase64?: string;
     duration: number;
   };
   video?: {
@@ -140,11 +141,14 @@ async function generateVoiceover(script: GeneratedAd['script']): Promise<Generat
 
   if (!response.ok) return undefined;
 
-  // For now, return a placeholder - actual implementation would save the audio
-  // and return a URL to the saved file
+  // Convert audio response to base64 for VPS consumption
+  const audioBuffer = await response.arrayBuffer();
+  const audioBase64 = Buffer.from(audioBuffer).toString('base64');
+
   return {
-    url: '/api/audio/latest',
-    duration: Math.ceil(script.fullScript.split(' ').length / 2.5), // rough estimate
+    url: 'base64',
+    audioBase64,
+    duration: Math.ceil(script.fullScript.split(' ').length / 2.5),
   };
 }
 
