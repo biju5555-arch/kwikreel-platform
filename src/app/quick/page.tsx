@@ -115,6 +115,9 @@ function QuickGenContent() {
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [videoGenerating, setVideoGenerating] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoError, setVideoError] = useState<string | null>(null);
 
   const processingSteps = [
     'Analyzing your website',
@@ -207,6 +210,37 @@ function QuickGenContent() {
     setAd(null);
     setError(null);
     setCurrentStep(0);
+    setVideoGenerating(false);
+    setVideoUrl(null);
+    setVideoError(null);
+  };
+
+  const handleGenerateVideo = async () => {
+    if (!ad || !business) return;
+    setVideoGenerating(true);
+    setVideoError(null);
+    try {
+      const response = await fetch('/api/assemble', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          script: ad.script.fullScript,
+          imageUrl: ad.image?.url,
+          voiceoverUrl: ad.voiceover?.url,
+          businessName: business.name,
+          services: business.services,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'Video assembly failed');
+      }
+      setVideoUrl(data.videoUrl);
+    } catch (err) {
+      setVideoError(err instanceof Error ? err.message : 'Failed to generate video');
+    } finally {
+      setVideoGenerating(false);
+    }
   };
 
   const copyScript = async () => {
@@ -230,6 +264,35 @@ function QuickGenContent() {
             <GradientText>KwikReel</GradientText>
           </span>
         </div>
+
+              {/* Video Error Display */}
+              {videoError && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm">
+                  {videoError}
+                </div>
+              )}
+
+              {/* Video Player */}
+              {videoUrl && (
+                <div className="rounded-2xl overflow-hidden border border-gray-200 bg-black">
+                  <video
+                    src={videoUrl}
+                    controls
+                    autoPlay
+                    className="w-full"
+                  />
+                  <div className="p-3 bg-gray-50 flex justify-end">
+                    <a
+                      href={videoUrl}
+                      download
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl text-sm font-medium hover:from-orange-600 hover:to-red-700 transition-all"
+                    >
+                      <Download size={16} />
+                      Download Video
+                    </a>
+                  </div>
+                </div>
+              )}
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-12">
@@ -516,10 +579,18 @@ function QuickGenContent() {
                   <RefreshCw size={20} />
                   Start Over
                 </button>
-                <button className="flex-1 py-4 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 rounded-2xl font-semibold text-white transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2">
-                  <Video size={20} />
-                  Generate Full Video
-                  <ChevronRight size={18} />
+                <button
+                  onClick={handleGenerateVideo}
+                  disabled={videoGenerating}
+                  className="flex-1 py-4 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 disabled:from-gray-400 disabled:to-gray-400 rounded-2xl font-semibold text-white transition-all shadow-lg shadow-orange-500/25 disabled:shadow-none flex items-center justify-center gap-2"
+                >
+                  {videoGenerating ? (
+                    <><Loader2 size={20} className="animate-spin" /> Generating Video...</>
+                  ) : videoUrl ? (
+                    <><CheckCircle2 size={20} /> Video Ready!</>
+                  ) : (
+                    <><Video size={20} /> Generate Full Video <ChevronRight size={18} /></>
+                  )}
                 </button>
               </motion.div>
 
