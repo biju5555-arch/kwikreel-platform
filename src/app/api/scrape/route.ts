@@ -145,12 +145,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 });
     }
 
+    // Normalize URL: prepend https:// if missing
+    let normalizedUrl = url.trim();
+    if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+      normalizedUrl = 'https://' + normalizedUrl;
+    }
+
+    // Validate URL format
+    try {
+      new URL(normalizedUrl);
+    } catch {
+      return NextResponse.json({ error: 'Invalid URL format. Please enter a valid website address.' }, { status: 400 });
+    }
+
     if (!OPENROUTER_API_KEY) {
       return NextResponse.json({ error: 'OpenRouter API key not configured' }, { status: 500 });
     }
 
-    const content = await extractTextFromUrl(url);
-    const businessInfo = await analyzeWithAI(content, url);
+    const content = await extractTextFromUrl(normalizedUrl);
+    const businessInfo = await analyzeWithAI(content, normalizedUrl);
 
     const { images } = JSON.parse(content);
     businessInfo.images = images || [];
@@ -158,13 +171,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       business: businessInfo,
-      sourceUrl: url,
+      sourceUrl: normalizedUrl,
     });
   } catch (error) {
     console.error('Scrape error:', error);
+    const errMsg = error instanceof Error ? error.message : 'Unknown error';
+    let userMessage = 'Failed to analyze URL';
+    let status = 500;
+
+    if (errMsg.includes('fetch failed') || errMsg.includes('ENOTFOUND') || errMsg.includes('getaddrinfo')) {
+      userMessage = 'Could not reach this website. Please check the URL and try again.';
+      status = 422;
+    } else if (errMsg.includes('Failed to fetch URL:')) {
+      userMessage = 'Website returned an error. It may be temporarily down or blocking access.';
+      status = 422;
+    } else if (errMsg.includes('AI analysis failed')) {
+      userMessage = 'Could not analyze website content. Please try again.';
+    }
+
     return NextResponse.json(
-      { error: 'Failed to analyze URL', details: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
+      { error: userMessage, details: errMsg },
+      { status }
     );
   }
 }
