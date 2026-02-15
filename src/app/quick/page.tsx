@@ -225,7 +225,7 @@ function QuickGenContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          script: ad.script.fullScript,
+          script: ad.script,
           heroImageUrl: ad.image?.url,
           voiceoverBase64: ad.voiceover?.audioBase64,
           voiceoverUrl: ad.voiceover?.audioBase64 ? undefined : ad.voiceover?.url,
