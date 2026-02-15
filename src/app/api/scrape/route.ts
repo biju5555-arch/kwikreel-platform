@@ -13,30 +13,58 @@ interface BusinessInfo {
   targetAudience: string;
 }
 
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+
+async function fetchWithRetry(url: string): Promise<Response> {
+  let response = await fetch(url, {
+    headers: {
+      'User-Agent': BROWSER_UA,
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+    },
+    redirect: 'follow',
+  });
+
+  if (response.ok) return response;
+
+  const urlObj = new URL(url);
+  if (urlObj.hostname.startsWith('www.')) {
+    urlObj.hostname = urlObj.hostname.replace('www.', '');
+  } else {
+    urlObj.hostname = 'www.' + urlObj.hostname;
+  }
+
+  console.log('[Scrape] Retrying with alternate URL:', urlObj.toString());
+  response = await fetch(urlObj.toString(), {
+    headers: {
+      'User-Agent': BROWSER_UA,
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+    },
+    redirect: 'follow',
+  });
+
+  return response;
+}
+
 async function extractTextFromUrl(url: string): Promise<string> {
   try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; BhairavBot/1.0)',
-      },
-    });
-    
+    const response = await fetchWithRetry(url);
+
     if (!response.ok) {
       throw new Error(`Failed to fetch URL: ${response.status}`);
     }
-    
+
     const html = await response.text();
-    
-    // Basic HTML to text extraction
+
     const text = html
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 8000); // Limit for API
-    
-    // Extract image URLs
+      .slice(0, 8000);
+
     const imgRegex = /<img[^>]+src="([^"]+)"/gi;
     const images: string[] = [];
     let match;
@@ -46,7 +74,7 @@ async function extractTextFromUrl(url: string): Promise<string> {
         images.push(imgUrl);
       }
     }
-    
+
     return JSON.stringify({ text, images });
   } catch (error) {
     console.error('URL fetch error:', error);
@@ -66,7 +94,7 @@ async function analyzeWithAI(content: string, url: string): Promise<BusinessInfo
       messages: [
         {
           role: 'system',
-          content: `You are a business analyst. Extract structured information from contractor/trade business websites. Return ONLY valid JSON, no other text.`
+          content: 'You are a business analyst. Extract structured information from contractor/trade business websites. Return ONLY valid JSON, no other text.'
         },
         {
           role: 'user',
@@ -74,8 +102,7 @@ async function analyzeWithAI(content: string, url: string): Promise<BusinessInfo
 
 URL: ${url}
 
-Content:
-${content}
+Content: ${content}
 
 Return JSON with this exact structure:
 {
@@ -100,13 +127,12 @@ Return JSON with this exact structure:
 
   const data = await response.json();
   const content_text = data.choices?.[0]?.message?.content || '{}';
-  
-  // Extract JSON from response (handle markdown code blocks)
+
   const jsonMatch = content_text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     throw new Error('Failed to parse AI response');
   }
-  
+
   return JSON.parse(jsonMatch[0]);
 }
 
@@ -123,13 +149,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'OpenRouter API key not configured' }, { status: 500 });
     }
 
-    // Fetch and extract content from URL
     const content = await extractTextFromUrl(url);
-    
-    // Analyze with AI
     const businessInfo = await analyzeWithAI(content, url);
-    
-    // Parse images from content
+
     const { images } = JSON.parse(content);
     businessInfo.images = images || [];
 
@@ -138,7 +160,6 @@ export async function POST(request: NextRequest) {
       business: businessInfo,
       sourceUrl: url,
     });
-
   } catch (error) {
     console.error('Scrape error:', error);
     return NextResponse.json(
@@ -154,3 +175,4 @@ export async function GET() {
     service: 'URL Scraper',
   });
 }
+
