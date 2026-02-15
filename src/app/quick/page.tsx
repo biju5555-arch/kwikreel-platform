@@ -225,7 +225,9 @@ function QuickGenContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           script: ad.script.fullScript,
-          imageUrl: ad.image?.url,
+          heroImageUrl: ad.image?.url,
+          website: (business as any).sourceUrl || url,
+          phone: (business as any).phone,
           voiceoverUrl: ad.voiceover?.url,
           businessName: business.name,
           services: business.services,
