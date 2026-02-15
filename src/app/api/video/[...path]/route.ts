@@ -4,10 +4,11 @@ const VPS_API = process.env.VPS_API_INTERNAL || 'http://76.13.107.27:3001';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
-    const videoPath = params.path.join('/');
+    const { path } = await params;
+    const videoPath = path.join('/');
     console.log('[Video Proxy] Fetching:', videoPath);
 
     const response = await fetch(`${VPS_API}/videos/${videoPath}`, {
