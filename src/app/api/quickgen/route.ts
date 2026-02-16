@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { saveAsset, slugify } from '@/lib/storage';
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const IDEOGRAM_API_KEY = process.env.IDEOGRAM_API_KEY;
@@ -27,17 +26,14 @@ interface GeneratedAd {
   image?: {
     url: string;
     prompt: string;
-    localPath?: string;
   };
   voiceover?: {
     url: string;
-    localPath?: string;
-    base64?: string;
+    audioBase64?: string;
     duration: number;
   };
   video?: {
     url: string;
-    localPath?: string;
     status: string;
   };
 }
@@ -90,7 +86,7 @@ Make it sound like a real person talking, not corporate speak. Use contractions.
 }
 
 // Generate hero image with Ideogram
-async function generateImage(business: BusinessInfo, script: GeneratedAd['script'], businessSlug: string): Promise<GeneratedAd['image']> {
+async function generateImage(business: BusinessInfo, script: GeneratedAd['script']): Promise<GeneratedAd['image']> {
   if (!IDEOGRAM_API_KEY) return undefined;
 
   const prompt = `Professional contractor advertisement photo: ${business.services[0]} service. 
@@ -120,31 +116,14 @@ Warm colors, professional but approachable. No text overlays.`;
   const data = await response.json();
   const imageUrl = data.data?.[0]?.url;
   
-  if (!imageUrl) return undefined;
-
-  // Download and save image locally (if storage enabled)
-  try {
-    const imageResponse = await fetch(imageUrl);
-    const imageBuffer = await imageResponse.arrayBuffer();
-    const saved = await saveAsset(businessSlug, 'images', 'hero.png', Buffer.from(imageBuffer));
-    return { url: imageUrl, prompt, localPath: saved?.localPath };
-  } catch {
-    return { url: imageUrl, prompt };
-  }
+  return imageUrl ? { url: imageUrl, prompt } : undefined;
 }
 
 // Generate voiceover with ElevenLabs
-async function generateVoiceover(script: GeneratedAd['script'], businessSlug: string): Promise<GeneratedAd['voiceover']> {
+async function generateVoiceover(script: GeneratedAd['script']): Promise<GeneratedAd['voiceover']> {
   if (!ELEVENLABS_API_KEY) return undefined;
 
-  // Voice options:
-  // pNInz6obpgDQGcFmaJgB = Adam (deep male, confident)
-  // ErXwobaYiN019PkySvjV = Antoni (warm male, friendly)
-  // VR6AewLTigWG4xSOukaG = Arnold (energetic male)
-  // yoZ06aMxZJJ28mfd3POQ = Sam (professional male)
-  const VOICE_ID = 'ErXwobaYiN019PkySvjV'; // Antoni - warm, friendly, good for local business ads
-  
-  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+  const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM', {
     method: 'POST',
     headers: {
       'xi-api-key': ELEVENLABS_API_KEY,
@@ -152,30 +131,24 @@ async function generateVoiceover(script: GeneratedAd['script'], businessSlug: st
     },
     body: JSON.stringify({
       text: script.fullScript,
-      model_id: 'eleven_multilingual_v2',
+      model_id: 'eleven_monolingual_v1',
       voice_settings: {
-        stability: 0.4,
-        similarity_boost: 0.8,
-        style: 0.3,
-        use_speaker_boost: true,
+        stability: 0.5,
+        similarity_boost: 0.75,
       },
     }),
   });
 
   if (!response.ok) return undefined;
 
-  // Save audio to local storage (if storage enabled)
+  // Convert audio response to base64 for VPS consumption
   const audioBuffer = await response.arrayBuffer();
-  const saved = await saveAsset(businessSlug, 'voiceovers', 'voiceover.mp3', Buffer.from(audioBuffer));
-  
-  // Convert to base64 for API response
-  const base64Audio = Buffer.from(audioBuffer).toString('base64');
-  
+  const audioBase64 = Buffer.from(audioBuffer).toString('base64');
+
   return {
-    url: saved?.publicPath || `data:audio/mpeg;base64,${base64Audio.slice(0, 100)}...`,
-    localPath: saved?.localPath,
-    base64: base64Audio,
-    duration: Math.ceil(script.fullScript.split(' ').length / 2.5), // rough estimate
+    url: 'base64',
+    audioBase64,
+    duration: Math.ceil(script.fullScript.split(' ').length / 2.5),
   };
 }
 
@@ -224,8 +197,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const businessSlug = slugify(business.name);
-    
     const result: GeneratedAd = {
       script: { hook: '', problem: '', solution: '', cta: '', fullScript: '' },
     };
@@ -236,11 +207,11 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Generate image (parallel-capable)
     console.log('Generating image...');
-    result.image = await generateImage(business, result.script, businessSlug);
+    result.image = await generateImage(business, result.script);
 
     // Step 3: Generate voiceover (parallel-capable)
     console.log('Generating voiceover...');
-    result.voiceover = await generateVoiceover(result.script, businessSlug);
+    result.voiceover = await generateVoiceover(result.script);
 
     // Step 4: Start video generation (optional, async)
     if (generateVideo && result.image?.url) {
@@ -252,7 +223,6 @@ export async function POST(request: NextRequest) {
       success: true,
       ad: result,
       business: business,
-      storage: { businessSlug },
     });
 
   } catch (error) {
