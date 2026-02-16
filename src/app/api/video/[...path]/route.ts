@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 
-export const runtime = 'edge';
+// Use Node.js runtime (NOT edge) - edge can't fetch plain HTTP
+// export const runtime = 'edge';
 
 const VPS_API = process.env.VPS_API_INTERNAL || 'http://76.13.107.27:3001';
 
@@ -28,6 +29,7 @@ async function handleRequest(
     });
 
     if (!response.ok && response.status !== 206) {
+      console.error('[Video Proxy] VPS returned', response.status, 'for', vpsUrl);
       return new Response(JSON.stringify({ error: 'Video not found' }), {
         status: response.status,
         headers: { 'Content-Type': 'application/json' },
