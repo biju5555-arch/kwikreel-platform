@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 export const runtime = 'edge';
 
@@ -28,10 +28,10 @@ async function handleRequest(
     });
 
     if (!response.ok && response.status !== 206) {
-      return NextResponse.json(
-        { error: 'Video not found' },
-        { status: response.status }
-      );
+      return new Response(JSON.stringify({ error: 'Video not found' }), {
+        status: response.status,
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     const contentType = response.headers.get('content-type') || 'video/mp4';
@@ -41,8 +41,11 @@ async function handleRequest(
 
     const responseHeaders: Record<string, string> = {
       'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=31536000',
       'Accept-Ranges': acceptRanges || 'bytes',
+      'Content-Encoding': 'identity',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'CDN-Cache-Control': 'no-store',
+      'Vercel-CDN-Cache-Control': 'no-store',
     };
 
     if (contentLength) {
@@ -52,16 +55,16 @@ async function handleRequest(
       responseHeaders['Content-Range'] = contentRange;
     }
 
-    return new NextResponse(isHead ? null : response.body, {
+    return new Response(isHead ? null : response.body, {
       status: response.status,
       headers: responseHeaders,
     });
   } catch (error) {
     console.error('[Video Proxy] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch video' },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: 'Failed to fetch video' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
 
