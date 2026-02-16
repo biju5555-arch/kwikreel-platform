@@ -8,6 +8,7 @@ interface BusinessInfo {
   services: string[];
   location: string;
   phone: string;
+  website: string;
   description: string;
   images: string[];
   targetAudience: string;
@@ -110,7 +111,8 @@ Return JSON with this exact structure:
   "tagline": "Short catchy tagline or slogan (create one if not found)",
   "services": ["service1", "service2", "service3"],
   "location": "City, State or service area",
-  "phone": "Phone number if found",
+  "phone": "Phone number if found (format: (555) 123-4567)",
+  "website": "Website domain (e.g., example.com)",
   "description": "2-3 sentence business description",
   "targetAudience": "Who they serve (homeowners, commercial, etc.)",
   "adHook": "A compelling hook for an ad (pain point + solution)"

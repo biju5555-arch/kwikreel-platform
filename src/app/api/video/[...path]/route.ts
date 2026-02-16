@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 const VPS_API = process.env.VPS_API_INTERNAL || 'http://76.13.107.27:3001';
 
-export async function GET(
+async function handleRequest(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
+  { params }: { params: Promise<{ path: string[] }> },
+  isHead: boolean = false
 ) {
   try {
     const { path } = await params;
     const videoPath = path.join('/');
     const vpsUrl = `${VPS_API}/videos/${videoPath}`;
 
-    console.log('[Video Proxy] Fetching:', vpsUrl);
+    console.log('[Video Proxy]', isHead ? 'HEAD' : 'GET', vpsUrl);
 
     const headers: Record<string, string> = {};
     const rangeHeader = request.headers.get('range');
@@ -19,7 +22,10 @@ export async function GET(
       headers['Range'] = rangeHeader;
     }
 
-    const response = await fetch(vpsUrl, { headers });
+    const response = await fetch(vpsUrl, {
+      method: isHead ? 'HEAD' : 'GET',
+      headers,
+    });
 
     if (!response.ok && response.status !== 206) {
       return NextResponse.json(
@@ -46,7 +52,7 @@ export async function GET(
       responseHeaders['Content-Range'] = contentRange;
     }
 
-    return new NextResponse(response.body, {
+    return new NextResponse(isHead ? null : response.body, {
       status: response.status,
       headers: responseHeaders,
     });
@@ -57,4 +63,18 @@ export async function GET(
       { status: 500 }
     );
   }
+}
+
+export async function GET(
+  request: NextRequest,
+  context: { params: Promise<{ path: string[] }> }
+) {
+  return handleRequest(request, context, false);
+}
+
+export async function HEAD(
+  request: NextRequest,
+  context: { params: Promise<{ path: string[] }> }
+) {
+  return handleRequest(request, context, true);
 }

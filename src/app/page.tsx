@@ -623,9 +623,6 @@ export default function Home() {
                 Start Free
                 <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
               </Link>
-              <button className="px-8 py-4 border border-gray-700 text-white rounded-full font-semibold hover:bg-gray-800 transition-colors inline-flex items-center justify-center gap-2">
-                Watch Demo
-              </button>
             </div>
           </FadeIn>
         </div>
@@ -644,7 +641,7 @@ export default function Home() {
             <div className="flex items-center gap-8 text-sm text-gray-500">
               <a href="#" className="hover:text-white transition-colors">Privacy</a>
               <a href="#" className="hover:text-white transition-colors">Terms</a>
-              <a href="#" className="hover:text-white transition-colors">Contact</a>
+              <a href="mailto:support@kwikreel.ai" className="hover:text-white transition-colors">Contact</a>
             </div>
             <p className="text-sm text-gray-600">
               © 2026 KwikReel. All rights reserved.

@@ -16,6 +16,8 @@ interface BusinessInfo {
   tagline?: string;
   services: string[];
   location?: string;
+  phone?: string;
+  website?: string;
   description: string;
   targetAudience?: string;
   adHook?: string;
@@ -35,7 +37,7 @@ interface GeneratedAd {
   };
   voiceover?: {
     url: string;
-    audioBase64?: string;
+    base64?: string;
     duration: number;
   };
   video?: {
@@ -45,6 +47,7 @@ interface GeneratedAd {
 }
 
 type Step = 'input' | 'processing' | 'preview';
+type FailedAt = 'scrape' | 'generate' | null;
 
 // Animated gradient text
 function GradientText({ children }: { children: React.ReactNode }) {
@@ -116,9 +119,10 @@ function QuickGenContent() {
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [failedAt, setFailedAt] = useState<FailedAt>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [videoGenerating, setVideoGenerating] = useState(false);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [videoError, setVideoError] = useState<string | null>(null);
+  const [videoStatus, setVideoStatus] = useState<string | null>(null);
 
   const processingSteps = [
     'Analyzing your website',
@@ -136,36 +140,49 @@ function QuickGenContent() {
     }
   }, []);
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (isRetry = false) => {
     const inputUrl = url.trim();
     if (!inputUrl && !manualInput.trim()) return;
     
     setError(null);
     setStep('processing');
-    setCurrentStep(0);
+    
+    // If retrying from generate step, skip scraping
+    const skipScrape = isRetry && failedAt === 'generate' && business;
+    
+    if (!skipScrape) {
+      setCurrentStep(0);
+      setFailedAt(null);
+    }
 
     try {
-      // Simulate scraping
-      setCurrentStep(0);
-      await simulateStep(800);
+      let businessData = business;
       
-      setCurrentStep(1);
-      await simulateStep(600);
+      if (!skipScrape) {
+        // Simulate scraping
+        setCurrentStep(0);
+        await simulateStep(800);
+        
+        setCurrentStep(1);
+        await simulateStep(600);
 
-      // Call the actual API
-      const response = await fetch('/api/scrape', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: inputUrl || manualInput }),
-      });
+        // Call the actual API
+        const response = await fetch('/api/scrape', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: inputUrl || manualInput }),
+        });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to analyze');
+        if (!response.ok) {
+          const data = await response.json();
+          setFailedAt('scrape');
+          throw new Error(data.error || 'Failed to analyze website');
+        }
+
+        const result = await response.json();
+        businessData = result.business;
+        setBusiness(businessData);
       }
-
-      const { business: businessData } = await response.json();
-      setBusiness(businessData);
       
       setCurrentStep(2);
       await simulateStep(1000);
@@ -176,16 +193,39 @@ function QuickGenContent() {
       setCurrentStep(4);
       await simulateStep(1000);
 
-      // Generate the ad
-      const genResponse = await fetch('/api/quickgen', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ business: businessData, generateVideo: false }),
-      });
+      // Generate the ad with retry logic
+      let genResponse: Response | null = null;
+      let lastError: Error | null = null;
+      const maxRetries = 2;
+      
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          genResponse = await fetch('/api/quickgen', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ business: businessData, generateVideo: false }),
+          });
+          
+          if (genResponse.ok) break;
+          
+          const data = await genResponse.json();
+          lastError = new Error(data.error || 'Failed to generate');
+          
+          if (attempt < maxRetries) {
+            // Wait before retry (exponential backoff)
+            await simulateStep(1000 * (attempt + 1));
+          }
+        } catch (e) {
+          lastError = e instanceof Error ? e : new Error('Network error');
+          if (attempt < maxRetries) {
+            await simulateStep(1000 * (attempt + 1));
+          }
+        }
+      }
 
-      if (!genResponse.ok) {
-        const data = await genResponse.json();
-        throw new Error(data.error || 'Failed to generate');
+      if (!genResponse?.ok) {
+        setFailedAt('generate');
+        throw lastError || new Error('Failed to generate ad after retries');
       }
 
       const { ad: adData } = await genResponse.json();
@@ -194,10 +234,13 @@ function QuickGenContent() {
       await simulateStep(500);
       
       setAd(adData);
+      setFailedAt(null);
+      setRetryCount(0);
       setStep('preview');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
-      setStep('input');
+      setRetryCount(prev => prev + 1);
+      // Stay on processing screen to show retry option
     }
   };
 
@@ -211,41 +254,6 @@ function QuickGenContent() {
     setAd(null);
     setError(null);
     setCurrentStep(0);
-    setVideoGenerating(false);
-    setVideoUrl(null);
-    setVideoError(null);
-  };
-
-  const handleGenerateVideo = async () => {
-    if (!ad || !business) return;
-    setVideoGenerating(true);
-    setVideoError(null);
-    try {
-      const response = await fetch('/api/assemble', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          script: ad.script,
-          heroImageUrl: ad.image?.url,
-          voiceoverBase64: ad.voiceover?.audioBase64,
-          voiceoverUrl: ad.voiceover?.audioBase64 ? undefined : ad.voiceover?.url,
-          businessName: business.name,
-          businessSlug: business.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          website: (business as any).sourceUrl || url,
-          phone: (business as any).phone,
-          services: business.services,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Video assembly failed');
-      }
-      setVideoUrl(data.videoUrl);
-    } catch (err) {
-      setVideoError(err instanceof Error ? err.message : 'Failed to generate video');
-    } finally {
-      setVideoGenerating(false);
-    }
   };
 
   const copyScript = async () => {
@@ -253,6 +261,56 @@ function QuickGenContent() {
       await navigator.clipboard.writeText(ad.script.fullScript);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleGenerateVideo = async () => {
+    if (!ad?.script || !business) return;
+    
+    setVideoGenerating(true);
+    setVideoStatus('Assembling your video...');
+    
+    try {
+      // Use Vercel API proxy to avoid mixed content issues
+      const response = await fetch('/api/assemble', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessName: business.name,
+          businessSlug: business.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          script: ad.script,
+          voiceoverBase64: ad.voiceover?.base64,
+          heroImageUrl: ad.image?.url,
+          phone: business.phone,
+          website: business.website || url.replace(/^https?:\/\//, '').split('/')[0],
+          services: business.services,
+        }),
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to assemble video');
+      }
+      
+      const result = await response.json();
+      
+      if (result.success && result.videoUrl) {
+        setAd(prev => prev ? {
+          ...prev,
+          video: { url: result.videoUrl, status: 'complete' }
+        } : null);
+        setVideoStatus('Video ready!');
+        setVideoGenerating(false);
+      } else {
+        throw new Error(result.error || 'Assembly failed');
+      }
+    } catch (err) {
+      console.error('Video assembly error:', err);
+      setVideoStatus(err instanceof Error ? err.message : 'Video generation failed');
+      setTimeout(() => {
+        setVideoGenerating(false);
+        setVideoStatus(null);
+      }, 3000);
     }
   };
 
@@ -269,35 +327,6 @@ function QuickGenContent() {
             <GradientText>KwikReel</GradientText>
           </span>
         </div>
-
-              {/* Video Error Display */}
-              {videoError && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm">
-                  {videoError}
-                </div>
-              )}
-
-              {/* Video Player */}
-              {videoUrl && (
-                <div className="rounded-2xl overflow-hidden border border-gray-200 bg-black">
-                  <video
-                    src={videoUrl}
-                    controls
-                    autoPlay
-                    className="w-full"
-                  />
-                  <div className="p-3 bg-gray-50 flex justify-end">
-                    <a
-                      href={videoUrl}
-                      download
-                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl text-sm font-medium hover:from-orange-600 hover:to-red-700 transition-all"
-                    >
-                      <Download size={16} />
-                      Download Video
-                    </a>
-                  </div>
-                </div>
-              )}
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-12">
@@ -352,7 +381,7 @@ function QuickGenContent() {
                   </div>
 
                   <button
-                    onClick={handleGenerate}
+                    onClick={() => handleGenerate()}
                     disabled={!url.trim()}
                     className="w-full py-5 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 disabled:from-gray-300 disabled:to-gray-300 rounded-2xl font-semibold text-lg text-white transition-all shadow-lg shadow-orange-500/25 disabled:shadow-none flex items-center justify-center gap-3"
                   >
@@ -378,7 +407,7 @@ function QuickGenContent() {
                   />
 
                   <button
-                    onClick={handleGenerate}
+                    onClick={() => handleGenerate()}
                     disabled={!manualInput.trim()}
                     className="w-full py-5 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 disabled:from-gray-300 disabled:to-gray-300 rounded-2xl font-semibold text-lg text-white transition-all shadow-lg shadow-orange-500/25 disabled:shadow-none flex items-center justify-center gap-3"
                   >
@@ -425,16 +454,57 @@ function QuickGenContent() {
               className="max-w-lg mx-auto"
             >
               <div className="text-center mb-10">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-orange-500 to-red-600 text-white mb-6 shadow-lg shadow-orange-500/25"
-                >
-                  <Sparkles size={36} />
-                </motion.div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-3">Creating Your Ad</h1>
-                <p className="text-gray-600">This usually takes about 30-60 seconds</p>
+                {!error ? (
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-orange-500 to-red-600 text-white mb-6 shadow-lg shadow-orange-500/25"
+                  >
+                    <Sparkles size={36} />
+                  </motion.div>
+                ) : (
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-red-100 text-red-600 mb-6">
+                    <RefreshCw size={36} />
+                  </div>
+                )}
+                <h1 className="text-3xl font-bold text-gray-900 mb-3">
+                  {error ? 'Generation Paused' : 'Creating Your Ad'}
+                </h1>
+                <p className="text-gray-600">
+                  {error ? 'Something went wrong, but we can retry from here' : 'This usually takes about 30-60 seconds'}
+                </p>
               </div>
+
+              {/* Error message with retry */}
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl"
+                >
+                  <p className="text-red-700 text-sm mb-3">{error}</p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => handleGenerate(true)}
+                      className="flex-1 py-3 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 rounded-xl font-semibold text-white transition-all flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw size={18} />
+                      Retry from {failedAt === 'generate' ? 'Step 3' : 'Start'}
+                    </button>
+                    <button
+                      onClick={handleReset}
+                      className="px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-medium text-gray-700 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {retryCount > 0 && (
+                    <p className="text-xs text-gray-500 mt-2 text-center">
+                      Attempt {retryCount + 1} • {failedAt === 'generate' && business ? 'Website data preserved' : ''}
+                    </p>
+                  )}
+                </motion.div>
+              )}
 
               {/* Progress steps */}
               <div className="space-y-3">
@@ -442,7 +512,12 @@ function QuickGenContent() {
                   <ProcessingStep
                     key={label}
                     label={label}
-                    status={i < currentStep ? 'complete' : i === currentStep ? 'active' : 'pending'}
+                    status={
+                      error && i === currentStep ? 'active' : // Show current step as active on error
+                      i < currentStep ? 'complete' : 
+                      i === currentStep && !error ? 'active' : 
+                      'pending'
+                    }
                     index={i}
                   />
                 ))}
@@ -452,7 +527,10 @@ function QuickGenContent() {
               <div className="mt-8">
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                   <motion.div
-                    className="h-full bg-gradient-to-r from-orange-500 to-red-600"
+                    className={clsx(
+                      "h-full",
+                      error ? "bg-red-400" : "bg-gradient-to-r from-orange-500 to-red-600"
+                    )}
                     initial={{ width: '0%' }}
                     animate={{ width: `${((currentStep + 1) / processingSteps.length) * 100}%` }}
                     transition={{ duration: 0.5 }}
@@ -570,6 +648,40 @@ function QuickGenContent() {
                 </motion.div>
               )}
 
+              {/* Video Card */}
+              {ad.video?.url && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25 }}
+                  className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden"
+                >
+                  <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+                        <Video size={20} className="text-green-600" />
+                      </div>
+                      <span className="font-semibold text-gray-900">Generated Video</span>
+                    </div>
+                    <a
+                      href={ad.video.url}
+                      download
+                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors flex items-center gap-2 text-sm font-medium text-gray-700"
+                    >
+                      <Download size={16} />
+                      Download
+                    </a>
+                  </div>
+                  <div className="aspect-video relative bg-gray-900">
+                    <video
+                      src={ad.video.url}
+                      controls
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                </motion.div>
+              )}
+
               {/* Actions */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -584,17 +696,27 @@ function QuickGenContent() {
                   <RefreshCw size={20} />
                   Start Over
                 </button>
-                <button
+                <button 
                   onClick={handleGenerateVideo}
-                  disabled={videoGenerating}
+                  disabled={videoGenerating || !ad?.image?.url}
                   className="flex-1 py-4 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 disabled:from-gray-400 disabled:to-gray-400 rounded-2xl font-semibold text-white transition-all shadow-lg shadow-orange-500/25 disabled:shadow-none flex items-center justify-center gap-2"
                 >
                   {videoGenerating ? (
-                    <><Loader2 size={20} className="animate-spin" /> Generating Video...</>
-                  ) : videoUrl ? (
-                    <><CheckCircle2 size={20} /> Video Ready!</>
+                    <>
+                      <Loader2 size={20} className="animate-spin" />
+                      {videoStatus || 'Generating...'}
+                    </>
+                  ) : ad?.video?.url ? (
+                    <>
+                      <Check size={20} />
+                      Video Ready
+                    </>
                   ) : (
-                    <><Video size={20} /> Generate Full Video <ChevronRight size={18} /></>
+                    <>
+                      <Video size={20} />
+                      Generate Full Video
+                      <ChevronRight size={18} />
+                    </>
                   )}
                 </button>
               </motion.div>
