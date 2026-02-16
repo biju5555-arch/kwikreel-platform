@@ -279,7 +279,7 @@ function QuickGenContent() {
           businessName: business.name,
           businessSlug: business.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           script: ad.script,
-          voiceoverBase64: ad.voiceover?.base64,
+          scriptText: ad.script.fullScript,
           heroImageUrl: ad.image?.url,
           phone: business.phone,
           website: business.website || url.replace(/^https?:\/\//, '').split('/')[0],

@@ -209,9 +209,12 @@ export async function POST(request: NextRequest) {
     console.log('Generating image...');
     result.image = await generateImage(business, result.script);
 
-    // Step 3: Generate voiceover (parallel-capable)
-    console.log('Generating voiceover...');
-    result.voiceover = await generateVoiceover(result.script);
+    // Step 3: Voiceover moved to VPS  just estimate duration, VPS generates audio from scriptText
+    console.log('Voiceover will be generated on VPS from script text');
+    result.voiceover = {
+      url: 'vps-generated',
+      duration: Math.ceil(result.script.fullScript.split(' ').length / 2.5),
+    };
 
     // Step 4: Start video generation (optional, async)
     if (generateVideo && result.image?.url) {
